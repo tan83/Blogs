@@ -10,27 +10,19 @@ export class ApiError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  return localStorage.getItem("admin_token");
-}
-
-export function setToken(token: string | null) {
-  if (token) {
-    localStorage.setItem("admin_token", token);
-  } else {
-    localStorage.removeItem("admin_token");
-  }
-}
-
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
-  const token = getToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
   } catch {
     throw new ApiError("No se pudo conectar con el servidor", 0);
   }

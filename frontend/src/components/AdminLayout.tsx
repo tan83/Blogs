@@ -68,16 +68,18 @@ const navItems = [
 ];
 
 export default function AdminLayout() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, loading, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { posts } = usePosts();
 
   useEffect(() => {
-    if (!isAuthenticated) navigate("/admin/login", { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (!loading && !isAuthenticated) {
+      navigate("/admin/login", { replace: true });
+    }
+  }, [loading, isAuthenticated, navigate]);
 
-  if (!isAuthenticated) return null;
+  if (loading || !isAuthenticated) return null;
 
   const published = posts.filter((p) => p.status === "published").length;
   const drafts = posts.filter((p) => p.status === "draft").length;

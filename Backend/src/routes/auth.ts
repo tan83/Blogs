@@ -30,10 +30,22 @@ router.post("/login", async (req: AuthRequest, res) => {
     expiresIn: "7d",
   });
 
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
   res.json({
-    token,
     admin: { id: admin.id, email: admin.email, name: admin.name },
   });
+});
+
+router.post("/logout", (_req, res) => {
+  res.clearCookie("token", { path: "/" });
+  res.json({ ok: true });
 });
 
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {

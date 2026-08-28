@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { ApiError, api, getToken, setToken } from "@/lib/api";
+import { api } from "@/lib/api";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -20,29 +20,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setIsAuthenticated(false);
-      setLoading(false);
-      return;
-    }
-
     api<{ id: string; email: string; name: string }>("/auth/me")
       .then(() => setIsAuthenticated(true))
-      .catch((error) => {
-        if (error instanceof ApiError && error.status === 401) setToken(null);
-        setIsAuthenticated(false);
-      })
+      .catch(() => setIsAuthenticated(false))
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const result = await api<{ token: string }>("/auth/login", {
+      await api<{ admin: { id: string; email: string; name: string } }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      setToken(result.token);
       setIsAuthenticated(true);
       return true;
     } catch {
@@ -50,8 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setToken(null);
+  const logout = async () => {
+    try {
+      await api<{ ok: boolean }>("/auth/logout", { method: "POST" });
+    } catch {
+      // ignore logout errors and close the local session anyway
+    }
     setIsAuthenticated(false);
   };
 
