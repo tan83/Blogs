@@ -1,0 +1,92 @@
+// Prisma schema for the JHVS blog backend.
+// Connects to the Supabase Postgres database via the pooler.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum PostStatus {
+  published
+  draft
+}
+
+model Author {
+  id      String @id @default(cuid())
+  name    String
+  avatar  String
+  bio     String
+  twitter String
+  posts   Post[]
+}
+
+model Post {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  excerpt     String
+  content     String
+  category    String
+  tags        String[]
+  coverImage  String
+  publishedAt DateTime
+  readTime    Int
+  status      PostStatus @default(draft)
+  views       Int        @default(0)
+  featured    Boolean    @default(false)
+  authorId    String
+  author      Author     @relation(fields: [authorId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String   @default("Admin")
+  createdAt DateTime @default(now())
+}
+
+model Image {
+  id        String   @id @default(cuid())
+  mimeType  String
+  base64    String
+  createdAt DateTime @default(now())
+}
+
+model About {
+  id             String       @id @default(cuid())
+  name           String
+  headline       String
+  bio            String
+  avatarImage    String
+  handle         String
+  email          String
+  linkedinUrl    String
+  twitterUrl     String
+  githubUrl      String
+  skills         String[]
+  ctaTitle       String
+  ctaText        String
+  ctaButtonLabel String
+  updatedAt      DateTime     @updatedAt
+  experience     Experience[]
+}
+
+model Experience {
+  id          String   @id @default(cuid())
+  role        String
+  company     String
+  period      String
+  description String
+  order       Int      @default(0)
+  aboutId     String
+  about       About    @relation(fields: [aboutId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
