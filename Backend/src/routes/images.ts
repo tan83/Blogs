@@ -19,6 +19,10 @@ function parseImageData(raw: unknown): { mimeType: string; base64: string } | nu
   return { mimeType: "image/png", base64: raw };
 }
 
+function getPublicApiBaseUrl(): string {
+  return process.env.PUBLIC_API_URL || "";
+}
+
 // Upload an image, stored in the database as base64
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -50,9 +54,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     const image = await prisma.image.create({ data: { mimeType, base64: parsed.base64 } });
 
+    const publicBase = getPublicApiBaseUrl();
+    const url = publicBase ? `${publicBase}/api/images/${image.id}` : `/api/images/${image.id}`;
+
     res.status(201).json({
       id: image.id,
-      url: `/api/images/${image.id}`,
+      url,
       mimeType: image.mimeType,
     });
   } catch (error) {

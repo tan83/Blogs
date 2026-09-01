@@ -115,6 +115,13 @@ router.put("/", requireAuth, async (req: Request, res: Response) => {
       data: input,
       include: { experience: true },
     });
+
+    if (input.avatarImage) {
+      await prisma.author.updateMany({
+        data: { avatar: input.avatarImage },
+      });
+    }
+
     res.json(toAboutDto(updated));
   } catch (error) {
     console.error(error);

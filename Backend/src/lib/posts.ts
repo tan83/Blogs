@@ -5,7 +5,9 @@ export type PostWithAuthor = Prisma.PostGetPayload<{
   include: { author: true };
 }>;
 
-export function toPostDto(post: PostWithAuthor) {
+export type AboutForPosts = Prisma.AboutGetPayload<{}>;
+
+export function toPostDto(post: PostWithAuthor, aboutAvatar?: string) {
   return {
     id: post.id,
     slug: post.slug,
@@ -22,7 +24,7 @@ export function toPostDto(post: PostWithAuthor) {
     featured: post.featured,
     author: {
       name: post.author.name,
-      avatar: post.author.avatar,
+      avatar: aboutAvatar || post.author.avatar,
       bio: post.author.bio,
       twitter: post.author.twitter,
     },

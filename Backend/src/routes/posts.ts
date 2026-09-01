@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { fromDateString } from "../lib/date.js";
-import { toPostDto, type PostWithAuthor } from "../lib/posts.js";
+import { toPostDto, type PostWithAuthor, type AboutForPosts } from "../lib/posts.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -109,31 +109,41 @@ function handleError(res: Response, error: unknown) {
 
 // List all posts (newest first)
 router.get("/", async (_req, res) => {
-  const posts = await prisma.post.findMany({
-    include: { author: true },
-    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
-  });
-  res.json(posts.map(toPostDto));
+  const [posts, about] = await Promise.all([
+    prisma.post.findMany({
+      include: { author: true },
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    }),
+    prisma.about.findFirst({ select: { avatarImage: true } }),
+  ]);
+  const aboutAvatar = about?.avatarImage;
+  res.json(posts.map((p) => toPostDto(p, aboutAvatar)));
 });
 
 // Get a single post by id (used by the admin editor)
 router.get("/id/:id", async (req, res) => {
-  const post = await prisma.post.findUnique({
-    where: { id: req.params.id },
-    include: { author: true },
-  });
+  const [post, about] = await Promise.all([
+    prisma.post.findUnique({
+      where: { id: req.params.id },
+      include: { author: true },
+    }),
+    prisma.about.findFirst({ select: { avatarImage: true } }),
+  ]);
   if (!post) return res.status(404).json({ message: "Post not found" });
-  res.json(toPostDto(post));
+  res.json(toPostDto(post, about?.avatarImage));
 });
 
 // Get a single post by slug (public)
 router.get("/:slug", async (req, res) => {
-  const post = await prisma.post.findUnique({
-    where: { slug: req.params.slug },
-    include: { author: true },
-  });
+  const [post, about] = await Promise.all([
+    prisma.post.findUnique({
+      where: { slug: req.params.slug },
+      include: { author: true },
+    }),
+    prisma.about.findFirst({ select: { avatarImage: true } }),
+  ]);
   if (!post) return res.status(404).json({ message: "Post not found" });
-  res.json(toPostDto(post));
+  res.json(toPostDto(post, about?.avatarImage));
 });
 
 // Create a post (admin only)
@@ -148,7 +158,8 @@ router.post("/", requireAuth, async (req: Request, res) => {
       data: buildCreateData(input, authorId),
       include: { author: true },
     });
-    res.status(201).json(toPostDto(created));
+    const about = await prisma.about.findFirst({ select: { avatarImage: true } });
+    res.status(201).json(toPostDto(created, about?.avatarImage));
   } catch (error) {
     handleError(res, error);
   }
@@ -175,7 +186,8 @@ router.put("/:id", requireAuth, async (req: Request, res) => {
       data,
       include: { author: true },
     });
-    res.json(toPostDto(updated));
+    const about = await prisma.about.findFirst({ select: { avatarImage: true } });
+    res.json(toPostDto(updated, about?.avatarImage));
   } catch (error) {
     handleError(res, error);
   }
@@ -198,12 +210,15 @@ router.delete("/:id", requireAuth, async (req: Request, res) => {
 // Increment the view counter for a post
 router.post("/:id/view", async (req: Request, res) => {
   try {
-    const updated = await prisma.post.update({
-      where: { id: req.params.id },
-      data: { views: { increment: 1 } },
-      include: { author: true },
-    });
-    res.json(toPostDto(updated));
+    const [updated, about] = await Promise.all([
+      prisma.post.update({
+        where: { id: req.params.id },
+        data: { views: { increment: 1 } },
+        include: { author: true },
+      }),
+      prisma.about.findFirst({ select: { avatarImage: true } }),
+    ]);
+    res.json(toPostDto(updated, about?.avatarImage));
   } catch (error) {
     if (error instanceof Error && "code" in error && (error as { code: string }).code === "P2025") {
       return res.status(404).json({ message: "Post not found" });

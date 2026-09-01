@@ -47,11 +47,14 @@ const EXPERIENCE_SEED = [
 ];
 
 async function main() {
+  const about = await prisma.about.findFirst();
+  const aboutAvatar = about?.avatarImage || AUTHOR.avatar;
+
   const author =
     (await prisma.author.findFirst({ where: { name: AUTHOR.name } })) ??
-    (await prisma.author.create({ data: AUTHOR }));
+    (await prisma.author.create({ data: { ...AUTHOR, avatar: aboutAvatar } }));
 
-  await prisma.author.update({ where: { id: author.id }, data: AUTHOR });
+  await prisma.author.update({ where: { id: author.id }, data: { ...AUTHOR, avatar: aboutAvatar } });
 
   for (const post of INITIAL_POSTS) {
     const publishedAt = new Date(`${post.publishedAt}T00:00:00.000Z`);
