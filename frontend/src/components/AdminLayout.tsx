@@ -115,7 +115,7 @@ export default function AdminLayout() {
         <div style={{ padding: "4px 14px 20px", borderBottom: "1px solid var(--border)", marginBottom: 8 }}>
           <Link to="/" style={{ textDecoration: "none", color: "var(--foreground)" }}>
             <span style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", fontWeight: 600 }}>
-              <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JHVS</span>
+              <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
             </span>
           </Link>
           <div style={{ fontSize: "0.7rem", color: "var(--muted-fg)", marginTop: 4, fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>

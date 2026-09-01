@@ -71,7 +71,7 @@ export default function Layout() {
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link to="/" style={{ textDecoration: "none", color: "var(--foreground)" }}>
             <span style={{ fontFamily: "var(--font-display)", fontSize: "1.375rem", fontWeight: 600, letterSpacing: "-0.02em" }}>
-              <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JHVS</span>
+              <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
             </span>
           </Link>
 
@@ -148,7 +148,7 @@ export default function Layout() {
       <footer style={{ borderTop: "1px solid var(--border)", marginTop: 80, padding: "32px 24px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
           <span style={{ fontFamily: "var(--font-display)", fontSize: "1.125rem", fontWeight: 600 }}>
-            <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JHVS</span>
+            <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
           </span>
           <span style={{ fontSize: "0.8125rem", color: "var(--muted-fg)" }}>
             © 2026 Jonathan Salgado Vega — Writing about code, craft & quiet.

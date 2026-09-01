@@ -1,5 +1,8 @@
 {
   "description": "A personal blogging platform offering a fresh, user-friendly design with infinite scroll, tag search, and a secure admin panel for easy post management.",
+  "icons": {
+    "icon": "/src/icon.png"
+  },
   "robots": {
     "index": false
   },

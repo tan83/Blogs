@@ -73,7 +73,7 @@ export default function AdminLogin() {
       >
         <Link to="/" style={{ textDecoration: "none", color: "var(--foreground)" }}>
           <span style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 600 }}>
-            <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JHVS</span>
+            <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
           </span>
         </Link>
 

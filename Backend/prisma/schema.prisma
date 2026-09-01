@@ -1,4 +1,4 @@
-// Prisma schema for the JHVS blog backend.
+// Prisma schema for the JVSV blog backend.
 // Connects to the Supabase Postgres database via the pooler.
 
 generator client {
