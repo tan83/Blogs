@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import type { Post } from "@/data/posts";
+import { usePosts } from "@/context/PostsContext";
+import { LikeButton } from "./LikeButton";
 
 interface PostCardProps {
   post: Post;
@@ -16,6 +18,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function PostCard({ post, style }: PostCardProps) {
   const [hovered, setHovered] = useState(false);
+  const { postLikes, toggleLike } = usePosts();
+  const likes = postLikes[post.id] || { totalLikes: 0, hasUserLiked: false };
+
+  const handleLikeClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleLike(post.id);
+  };
 
   return (
     <Link
@@ -111,9 +121,19 @@ export default function PostCard({ post, style }: PostCardProps) {
               />
               <span style={{ fontSize: "0.8rem", color: "var(--muted-fg)" }}>{post.author.name}</span>
             </div>
-            <time style={{ fontSize: "0.75rem", color: "var(--subtext)" }}>
-              {new Date(post.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </time>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <time style={{ fontSize: "0.75rem", color: "var(--subtext)" }}>
+                {new Date(post.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </time>
+              <div onClick={handleLikeClick}>
+                <LikeButton
+                  postId={post.id}
+                  totalLikes={likes.totalLikes}
+                  hasLiked={likes.hasUserLiked}
+                  onToggleLike={() => toggleLike(post.id)}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </article>

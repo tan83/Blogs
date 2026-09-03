@@ -19,6 +19,7 @@ export interface Post {
   readTime: number;
   status: "published" | "draft";
   views: number;
+  likesCount?: number;
   featured?: boolean;
 }
 

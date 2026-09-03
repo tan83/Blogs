@@ -31,7 +31,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
 }
 
 export default function AdminDashboard() {
-  const { posts, deletePost, updatePost } = usePosts();
+  const { posts, deletePost, updatePost, postLikes } = usePosts();
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Title", "Category", "Status", "Views", "Date", "Actions"].map((col) => (
+                {["Title", "Category", "Status", "Views", "Likes", "Date", "Actions"].map((col) => (
                   <th key={col} style={{
                     padding: "10px 20px",
                     textAlign: "left",
@@ -204,6 +204,9 @@ export default function AdminDashboard() {
                   </td>
                   <td style={{ padding: "14px 20px", color: "var(--muted-fg)", fontSize: "0.875rem", whiteSpace: "nowrap" }}>
                     {post.views.toLocaleString()}
+                  </td>
+                  <td style={{ padding: "14px 20px", color: "var(--muted-fg)", fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+                    ❤️ {(postLikes[post.id]?.totalLikes ?? 0).toLocaleString()}
                   </td>
                   <td style={{ padding: "14px 20px", color: "var(--muted-fg)", fontSize: "0.8125rem", whiteSpace: "nowrap" }}>
                     {new Date(post.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

@@ -4,6 +4,7 @@ import { marked } from "marked";
 import { usePosts } from "@/context/PostsContext";
 import { api } from "@/lib/api";
 import PostCard from "@/components/PostCard";
+import { LikeButton } from "@/components/LikeButton";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Engineering: "#3B82F6",
@@ -22,10 +23,11 @@ function ArrowLeft() {
 
 export default function PostDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const { getPostBySlug, posts } = usePosts();
+  const { getPostBySlug, posts, postLikes, toggleLike } = usePosts();
   const navigate = useNavigate();
 
   const post = slug ? getPostBySlug(slug) : undefined;
+  const likes = post ? postLikes[post.id] || { totalLikes: 0, hasUserLiked: false } : null;
 
   useEffect(() => {
     if (slug && !post) navigate("/", { replace: true });
@@ -129,12 +131,19 @@ export default function PostDetail() {
             </div>
           </div>
           <div style={{ width: 1, height: 32, backgroundColor: "var(--border)" }} />
-          <div style={{ fontSize: "0.8125rem", color: "var(--muted-fg)", display: "flex", gap: 16 }}>
+          <div style={{ fontSize: "0.8125rem", color: "var(--muted-fg)", display: "flex", gap: 16, alignItems: "center" }}>
             <time>{new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</time>
             <span>·</span>
             <span>{post.readTime} min read</span>
             <span>·</span>
             <span>{totalViews} views</span>
+            <span>·</span>
+            <LikeButton
+              postId={post.id}
+              totalLikes={likes?.totalLikes ?? 0}
+              hasLiked={likes?.hasUserLiked ?? false}
+              onToggleLike={() => toggleLike(post.id)}
+            />
           </div>
         </div>
 

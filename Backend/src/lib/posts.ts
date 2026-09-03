@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { toDateString } from "./date.js";
 
 export type PostWithAuthor = Prisma.PostGetPayload<{
-  include: { author: true };
+  include: { author: true; _count: { select: { likes: true } } };
 }>;
 
 export type AboutForPosts = Prisma.AboutGetPayload<{}>;
@@ -21,6 +21,7 @@ export function toPostDto(post: PostWithAuthor, aboutAvatar?: string) {
     readTime: post.readTime,
     status: post.status,
     views: post.views,
+    likesCount: post._count.likes,
     featured: post.featured,
     author: {
       name: post.author.name,

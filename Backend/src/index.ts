@@ -11,6 +11,8 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "https://localhost:5173",
+  "http://localhost:8443",
+  "https://localhost:8443",
   "https://jonathan-blogs.tech",
   "https://www.jonathan-blogs.tech",
   process.env.FRONTEND_URL,

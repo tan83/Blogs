@@ -41,3 +41,36 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+/**
+ * Toggle a like for a post (like/unlike)
+ */
+export interface LikeToggleResponse {
+  hasLiked: boolean;
+  totalLikes: number;
+}
+
+export async function togglePostLike(
+  postId: string,
+  sessionId: string
+): Promise<LikeToggleResponse> {
+  return api<LikeToggleResponse>(`/posts/${postId}/like`, {
+    method: "POST",
+    body: JSON.stringify({ sessionId }),
+  });
+}
+
+/**
+ * Get like information for a post
+ */
+export interface PostLikesResponse {
+  totalLikes: number;
+  hasUserLiked: boolean;
+}
+
+export async function getPostLikes(
+  postId: string,
+  sessionId: string
+): Promise<PostLikesResponse> {
+  return api<PostLikesResponse>(`/posts/${postId}/likes?sessionId=${encodeURIComponent(sessionId)}`);
+}

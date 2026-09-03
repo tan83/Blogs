@@ -111,7 +111,7 @@ function handleError(res: Response, error: unknown) {
 router.get("/", async (_req, res) => {
   const [posts, about] = await Promise.all([
     prisma.post.findMany({
-      include: { author: true },
+      include: { author: true, _count: { select: { likes: true } } },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     }),
     prisma.about.findFirst({ select: { avatarImage: true } }),
@@ -125,7 +125,7 @@ router.get("/id/:id", async (req, res) => {
   const [post, about] = await Promise.all([
     prisma.post.findUnique({
       where: { id: req.params.id },
-      include: { author: true },
+      include: { author: true, _count: { select: { likes: true } } },
     }),
     prisma.about.findFirst({ select: { avatarImage: true } }),
   ]);
@@ -138,7 +138,7 @@ router.get("/:slug", async (req, res) => {
   const [post, about] = await Promise.all([
     prisma.post.findUnique({
       where: { slug: req.params.slug },
-      include: { author: true },
+      include: { author: true, _count: { select: { likes: true } } },
     }),
     prisma.about.findFirst({ select: { avatarImage: true } }),
   ]);
@@ -156,7 +156,7 @@ router.post("/", requireAuth, async (req: Request, res) => {
     const authorId = await resolveAuthorId(input.author);
     const created = await prisma.post.create({
       data: buildCreateData(input, authorId),
-      include: { author: true },
+      include: { author: true, _count: { select: { likes: true } } },
     });
     const about = await prisma.about.findFirst({ select: { avatarImage: true } });
     res.status(201).json(toPostDto(created, about?.avatarImage));
@@ -184,7 +184,7 @@ router.put("/:id", requireAuth, async (req: Request, res) => {
     const updated = await prisma.post.update({
       where: { id: req.params.id },
       data,
-      include: { author: true },
+      include: { author: true, _count: { select: { likes: true } } },
     });
     const about = await prisma.about.findFirst({ select: { avatarImage: true } });
     res.json(toPostDto(updated, about?.avatarImage));
@@ -214,7 +214,7 @@ router.post("/:id/view", async (req: Request, res) => {
       prisma.post.update({
         where: { id: req.params.id },
         data: { views: { increment: 1 } },
-        include: { author: true },
+        include: { author: true, _count: { select: { likes: true } } },
       }),
       prisma.about.findFirst({ select: { avatarImage: true } }),
     ]);
@@ -223,6 +223,86 @@ router.post("/:id/view", async (req: Request, res) => {
     if (error instanceof Error && "code" in error && (error as { code: string }).code === "P2025") {
       return res.status(404).json({ message: "Post not found" });
     }
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Toggle like for a post (anonymous users via sessionId)
+router.post("/:id/like", async (req: Request, res) => {
+  try {
+    const { sessionId } = req.body;
+    if (!sessionId || typeof sessionId !== "string" || sessionId.trim() === "") {
+      return res.status(400).json({ message: "sessionId is required" });
+    }
+
+    const postExists = await prisma.post.findUnique({ where: { id: req.params.id } });
+    if (!postExists) return res.status(404).json({ message: "Post not found" });
+
+    // Check if like already exists
+    const existingLike = await prisma.like.findUnique({
+      where: {
+        postId_sessionId: { postId: req.params.id, sessionId },
+      },
+    });
+
+    let hasLiked: boolean;
+    if (existingLike) {
+      // Unlike
+      await prisma.like.delete({
+        where: { id: existingLike.id },
+      });
+      hasLiked = false;
+    } else {
+      // Like
+      await prisma.like.create({
+        data: {
+          postId: req.params.id,
+          sessionId,
+        },
+      });
+      hasLiked = true;
+    }
+
+    // Get total likes
+    const totalLikes = await prisma.like.count({
+      where: { postId: req.params.id },
+    });
+
+    res.json({ hasLiked, totalLikes });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Get like info for a post
+router.get("/:id/likes", async (req: Request, res) => {
+  try {
+    const sessionId = req.query.sessionId as string | undefined;
+    if (!sessionId || sessionId.trim() === "") {
+      return res.status(400).json({ message: "sessionId query parameter is required" });
+    }
+
+    const postExists = await prisma.post.findUnique({ where: { id: req.params.id } });
+    if (!postExists) return res.status(404).json({ message: "Post not found" });
+
+    const [totalLikes, userLike] = await Promise.all([
+      prisma.like.count({
+        where: { postId: req.params.id },
+      }),
+      prisma.like.findUnique({
+        where: {
+          postId_sessionId: { postId: req.params.id, sessionId },
+        },
+      }),
+    ]);
+
+    res.json({
+      totalLikes,
+      hasUserLiked: userLike !== null,
+    });
+  } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }

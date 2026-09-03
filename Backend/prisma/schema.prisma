@@ -41,6 +41,7 @@ model Post {
   featured    Boolean    @default(false)
   authorId    String
   author      Author     @relation(fields: [authorId], references: [id])
+  likes       Like[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -89,4 +90,14 @@ model Experience {
   aboutId     String
   about       About    @relation(fields: [aboutId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  sessionId String
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, sessionId])
 }
