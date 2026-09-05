@@ -35,7 +35,9 @@ export default function Layout() {
   const searchRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const [aboutLanguage, setAboutLanguage] = useState<"original" | "en">("original");
+  const [language, setLanguage] = useState<"original" | "en">(() => {
+    return window.localStorage.getItem("blog-language") === "en" ? "en" : "original";
+  });
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -71,11 +73,13 @@ export default function Layout() {
         }}
       >
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link to="/" style={{ textDecoration: "none", color: "var(--foreground)" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: "1.375rem", fontWeight: 600, letterSpacing: "-0.02em" }}>
-              <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
-            </span>
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <Link to="/" style={{ textDecoration: "none", color: "var(--foreground)" }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: "1.375rem", fontWeight: 600, letterSpacing: "-0.02em" }}>
+                <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
+              </span>
+            </Link>
+          </div>
 
           <nav style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Link to="/" style={{ padding: "6px 14px", fontSize: "0.875rem", color: "var(--muted-fg)", textDecoration: "none", borderRadius: 4, transition: "color 0.15s" }}
@@ -153,26 +157,26 @@ export default function Layout() {
             <span style={{ fontFamily: "var(--font-display)", fontSize: "1.125rem", fontWeight: 600 }}>
               <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
             </span>
-            {location.pathname === "/sobre-mi" && (
-              <div className="post-actions" aria-label="About page language">
-                <div className="post-translation-control">
-                  <span className="post-translation-label">Translate</span>
-                  <select
-                    value={aboutLanguage}
-                    onChange={(event) => {
-                      const language = event.target.value as "original" | "en";
-                      setAboutLanguage(language);
-                      window.dispatchEvent(new CustomEvent("about-language-change", { detail: language }));
-                    }}
-                    aria-label="Select language"
-                    style={{ background: "transparent", color: "var(--foreground)", border: 0, padding: "7px 24px 7px 4px", fontSize: "0.8125rem", fontWeight: 500, outline: "none", cursor: "pointer" }}
-                  >
-                    <option value="original">Original</option>
-                    <option value="en">English</option>
-                  </select>
-                </div>
+            <div className="post-actions" aria-label="Site language">
+              <div className="post-translation-control">
+                <span className="post-translation-label">Translate</span>
+                <select
+                  value={language}
+                  onChange={(event) => {
+                    const selectedLanguage = event.target.value as "original" | "en";
+                    setLanguage(selectedLanguage);
+                    window.localStorage.setItem("blog-language", selectedLanguage);
+                    const eventName = location.pathname === "/sobre-mi" ? "about-language-change" : "blog-language-change";
+                    window.dispatchEvent(new CustomEvent(eventName, { detail: selectedLanguage }));
+                  }}
+                  aria-label="Select language"
+                  style={{ background: "transparent", color: "var(--foreground)", border: 0, padding: "7px 24px 7px 4px", fontSize: "0.8125rem", fontWeight: 500, outline: "none", cursor: "pointer" }}
+                >
+                  <option value="original">Original</option>
+                  <option value="en">English</option>
+                </select>
               </div>
-            )}
+            </div>
           </div>
           <span style={{ fontSize: "0.8125rem", color: "var(--muted-fg)" }}>
             © 2026 Jonathan Salgado Vega — Writing about code, craft & quiet.

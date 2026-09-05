@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import PostCard from "@/components/PostCard";
 import { usePosts } from "@/context/PostsContext";
 import type { Post } from "@/data/posts";
+import { api } from "@/lib/api";
 
 const PAGE_SIZE = 6;
 
@@ -13,7 +14,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Career: "#10B981",
 };
 
-function FeaturedPost({ post }: { post: Post }) {
+function FeaturedPost({ post, language }: { post: Post; language: "original" | "en" }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -59,7 +60,7 @@ function FeaturedPost({ post }: { post: Post }) {
               color: "var(--accent)",
               fontFamily: "var(--font-mono)",
             }}>
-              Featured
+              {language === "en" ? "Featured" : "Destacado"}
             </span>
             <span style={{ width: 1, height: 12, backgroundColor: "rgba(255,255,255,0.3)" }} />
             <span style={{
@@ -114,12 +115,64 @@ export default function BlogHome() {
   const [searchParams] = useSearchParams();
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [translatedPosts, setTranslatedPosts] = useState<Record<string, Partial<Post>>>({});
+  const [translating, setTranslating] = useState(false);
+  const [blogLanguage, setBlogLanguage] = useState<"original" | "en">(() => {
+    return window.localStorage.getItem("blog-language") === "en" ? "en" : "original";
+  });
   const containerRef = useRef<HTMLDivElement>(null);
 
   const query = searchParams.get("q") || "";
 
+  useEffect(() => {
+    const handleLanguageChange = async (event: Event) => {
+      const language = (event as CustomEvent<"original" | "en">).detail;
+      if (language === "original") {
+        setTranslatedPosts({});
+        setBlogLanguage(language);
+        return;
+      }
+
+      const publishedPosts = posts.filter((post) => post.status === "published");
+      if (!publishedPosts.length) return;
+
+      try {
+        setTranslating(true);
+        const result = await api<{ content?: string }>("/posts/translate", {
+          method: "POST",
+          body: JSON.stringify({
+            title: "",
+            excerpt: "",
+            content: JSON.stringify(publishedPosts.map((post) => ({
+              id: post.id,
+              title: post.title,
+              excerpt: post.excerpt,
+              category: post.category,
+              tags: post.tags,
+            }))),
+            structuredContent: true,
+            sourceLanguage: "auto",
+            targetLanguage: language,
+          }),
+        });
+        const translated = JSON.parse(result.content || "[]") as Array<Partial<Post> & { id: string }>;
+        setTranslatedPosts(Object.fromEntries(translated.map((post) => [post.id, post])));
+        setBlogLanguage(language);
+      } finally {
+        setTranslating(false);
+      }
+    };
+
+    window.addEventListener("blog-language-change", handleLanguageChange);
+    if (window.localStorage.getItem("blog-language") === "en" && posts.length) {
+      void handleLanguageChange(new CustomEvent("blog-language-change", { detail: "en" }));
+    }
+    return () => window.removeEventListener("blog-language-change", handleLanguageChange);
+  }, [posts]);
+
   const published = useMemo(() => posts.filter((p) => p.status === "published"), [posts]);
   const featured = published.find((p) => p.featured) || published[0];
+  const translatedFeatured = featured ? { ...featured, ...translatedPosts[featured.id] } : featured;
 
   const allTags = useMemo(() => Array.from(new Set(published.flatMap((p) => p.tags))), [published]);
 
@@ -161,10 +214,10 @@ export default function BlogHome() {
       {query && (
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.75rem", fontWeight: 600 }}>
-            Results for "<span style={{ color: "var(--accent)" }}>{query}</span>"
+            {blogLanguage === "en" ? "Results for" : "Resultados para"} "<span style={{ color: "var(--accent)" }}>{query}</span>"
           </h1>
           <p style={{ color: "var(--muted-fg)", marginTop: 6, fontSize: "0.875rem" }}>
-            {filtered.length} {filtered.length === 1 ? "post" : "posts"} found
+            {filtered.length} {filtered.length === 1 ? "post" : "posts"} {blogLanguage === "en" ? "found" : "encontrados"}
           </p>
         </div>
       )}
@@ -172,7 +225,7 @@ export default function BlogHome() {
       {/* Featured post */}
       {featured && !activeTag && !query && (
         <div style={{ marginBottom: 48 }}>
-          <FeaturedPost post={featured} />
+          <FeaturedPost post={translatedFeatured} language={blogLanguage} />
         </div>
       )}
 
@@ -183,7 +236,7 @@ export default function BlogHome() {
             onClick={() => setActiveTag(null)}
             style={pillStyle(activeTag === null)}
           >
-            All
+            {blogLanguage === "en" ? "All" : "Todos"}
           </button>
           {allTags.map((tag) => (
             <button
@@ -223,7 +276,7 @@ export default function BlogHome() {
               className="animate-fade-up"
               style={{ animationDelay: `${(i % PAGE_SIZE) * 60}ms`, animationFillMode: "both" }}
             >
-              <PostCard post={post} style={{ height: "100%" }} />
+              <PostCard post={{ ...post, ...translatedPosts[post.id] }} style={{ height: "100%" }} />
             </div>
           ))}
         </div>

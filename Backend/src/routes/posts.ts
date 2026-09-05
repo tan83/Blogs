@@ -8,7 +8,15 @@ import { requireAuth } from "../middleware/auth.js";
 const router = Router();
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-const GEMINI_RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const GEMINI_RETRYABLE_STATUS_CODES = new Set([500, 502, 503, 504]);
+const translationCache = new Map<string, string>();
+
+class GeminiRateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GeminiRateLimitError";
+  }
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,6 +31,10 @@ async function translateText(text: string, targetLanguage: string, sourceLanguag
   if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }
+
+  const cacheKey = `${GEMINI_MODEL}:${sourceLanguage}:${targetLanguage}:${text}`;
+  const cachedTranslation = translationCache.get(cacheKey);
+  if (cachedTranslation) return cachedTranslation;
 
   let lastError: Error | null = null;
 
@@ -51,6 +63,15 @@ async function translateText(text: string, targetLanguage: string, sourceLanguag
       if (!response.ok) {
         const errorBody = await response.text();
         const statusCode = response.status;
+        if (statusCode === 429) {
+          const retryMatch = errorBody.match(/retryDelay[^\d]*(\d+)s|retry in ([\d.]+)s/i);
+          const retrySeconds = retryMatch?.[1] || retryMatch?.[2];
+          throw new GeminiRateLimitError(
+            retrySeconds
+              ? `Gemini alcanzó el límite gratuito. Intenta de nuevo en ${Math.ceil(Number(retrySeconds))} segundos.`
+              : "Gemini alcanzó el límite gratuito. Intenta de nuevo en un momento.",
+          );
+        }
         const isRetryable = GEMINI_RETRYABLE_STATUS_CODES.has(statusCode);
 
         if (isRetryable && attempt < 3) {
@@ -70,9 +91,11 @@ async function translateText(text: string, targetLanguage: string, sourceLanguag
         throw new Error("Gemini translation response was empty");
       }
 
+      translationCache.set(cacheKey, translated);
       return translated;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Unknown translation error");
+      if (error instanceof GeminiRateLimitError) throw error;
       if (attempt < 3) {
         await delay(500 * attempt);
       }
@@ -271,7 +294,7 @@ router.post("/translate", async (req: Request, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Translation failed";
     console.error("Post translation failed:", error);
-    res.status(500).json({ message });
+    res.status(error instanceof GeminiRateLimitError ? 429 : 500).json({ message });
   }
 });
 

@@ -25,7 +25,9 @@ export default function PostDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { getPostBySlug, posts, postLikes, toggleLike } = usePosts();
   const navigate = useNavigate();
-  const [selectedLanguage, setSelectedLanguage] = useState<"original" | "en">("original");
+  const [selectedLanguage, setSelectedLanguage] = useState<"original" | "en">(() => {
+    return window.localStorage.getItem("blog-language") === "en" ? "en" : "original";
+  });
   const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [translatedExcerpt, setTranslatedExcerpt] = useState<string | null>(null);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
@@ -54,6 +56,26 @@ export default function PostDetail() {
     setTranslatedContent(null);
     setSelectedLanguage("original");
     setTranslationError(null);
+  }, [post?.id]);
+
+  useEffect(() => {
+    const handleExternalLanguageChange = (event: Event) => {
+      const language = (event as CustomEvent<"original" | "en">).detail;
+      if (language === "original") {
+        setTranslatedTitle(null);
+        setTranslatedExcerpt(null);
+        setTranslatedContent(null);
+        setSelectedLanguage("original");
+        setTranslationError(null);
+        return;
+      }
+      void handleTranslate(language);
+    };
+    window.addEventListener("blog-language-change", handleExternalLanguageChange);
+    if (window.localStorage.getItem("blog-language") === "en" && post) {
+      void handleTranslate("en");
+    }
+    return () => window.removeEventListener("blog-language-change", handleExternalLanguageChange);
   }, [post?.id]);
 
   const handleTranslate = async (language: "en") => {
@@ -184,41 +206,6 @@ export default function PostDetail() {
           </div>
 
           <div className="post-actions" aria-label="Post actions">
-            <div className="post-translation-control">
-              <span className="post-translation-label">Translate</span>
-              <select
-                value={selectedLanguage}
-                onChange={(e) => {
-                  const value = e.target.value as "original" | "en";
-                  if (value === "original") {
-                    setTranslatedTitle(null);
-                    setTranslatedExcerpt(null);
-                    setTranslatedContent(null);
-                    setSelectedLanguage("original");
-                    setTranslationError(null);
-                    return;
-                  }
-                  void handleTranslate(value);
-                }}
-                style={{
-                  background: "transparent",
-                  color: "var(--foreground)",
-                  border: 0,
-                  borderRadius: 0,
-                  padding: "7px 24px 7px 4px",
-                  fontSize: "0.8125rem",
-                  fontWeight: 500,
-                  outline: "none",
-                  cursor: translating ? "wait" : "pointer",
-                }}
-                aria-label="Select language"
-              >
-                <option value="original">Original</option>
-                <option value="en">English</option>
-              </select>
-              {translating && <span className="post-translation-status">...</span>}
-            </div>
-
             {translationError && <span className="post-translation-error">{translationError}</span>}
 
             <LikeButton

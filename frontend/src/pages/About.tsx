@@ -28,7 +28,9 @@ function GithubIcon() {
 
 export default function About() {
   const { about, loading } = useAbout();
-  const [selectedLanguage, setSelectedLanguage] = useState<"original" | "en">("original");
+  const [selectedLanguage, setSelectedLanguage] = useState<"original" | "en">(() => {
+    return window.localStorage.getItem("blog-language") === "en" ? "en" : "original";
+  });
   const [translatedHeadline, setTranslatedHeadline] = useState<string | null>(null);
   const [translatedBio, setTranslatedBio] = useState<string | null>(null);
   const [translatedCtaText, setTranslatedCtaText] = useState<string | null>(null);
@@ -92,8 +94,11 @@ export default function About() {
       void handleLanguageChange((event as CustomEvent<"original" | "en">).detail);
     };
     window.addEventListener("about-language-change", handleExternalLanguageChange);
+    if (window.localStorage.getItem("blog-language") === "en" && about) {
+      void handleLanguageChange("en");
+    }
     return () => window.removeEventListener("about-language-change", handleExternalLanguageChange);
-  });
+  }, [about?.id]);
 
   if (loading || !about) return null;
 
