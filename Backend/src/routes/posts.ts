@@ -249,6 +249,7 @@ router.post("/translate", async (req: Request, res) => {
       title?: string;
       excerpt?: string;
       content?: string;
+      structuredContent?: boolean;
       sourceLanguage?: string;
       targetLanguage?: string;
     };
@@ -262,7 +263,9 @@ router.post("/translate", async (req: Request, res) => {
       content: body.content?.trim() || "",
     };
     const translated = await translatePostFields(fields, targetLanguage, sourceLanguage);
-    translated.content = await translatePostContent(fields.content, targetLanguage, sourceLanguage);
+    translated.content = body.structuredContent
+      ? await translateText(fields.content, targetLanguage, sourceLanguage)
+      : await translatePostContent(fields.content, targetLanguage, sourceLanguage);
 
     res.json({ ...translated, sourceLanguage, targetLanguage });
   } catch (error) {

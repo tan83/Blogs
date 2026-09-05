@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { useAbout } from "@/context/AboutContext";
+import { api } from "@/lib/api";
 
 function LinkedInIcon() {
   return (
@@ -26,19 +28,94 @@ function GithubIcon() {
 
 export default function About() {
   const { about, loading } = useAbout();
+  const [selectedLanguage, setSelectedLanguage] = useState<"original" | "en">("original");
+  const [translatedHeadline, setTranslatedHeadline] = useState<string | null>(null);
+  const [translatedBio, setTranslatedBio] = useState<string | null>(null);
+  const [translatedCtaText, setTranslatedCtaText] = useState<string | null>(null);
+  const [translatedCtaTitle, setTranslatedCtaTitle] = useState<string | null>(null);
+  const [translatedCtaButtonLabel, setTranslatedCtaButtonLabel] = useState<string | null>(null);
+  const [translatedSkills, setTranslatedSkills] = useState<string[] | null>(null);
+  const [translatedExperience, setTranslatedExperience] = useState<typeof about.experience | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+
+  const handleLanguageChange = async (language: "original" | "en") => {
+    if (!about) return;
+
+    if (language === "original") {
+      setTranslatedHeadline(null);
+      setTranslatedBio(null);
+      setTranslatedCtaText(null);
+      setTranslatedCtaTitle(null);
+      setTranslatedCtaButtonLabel(null);
+      setTranslatedSkills(null);
+      setTranslatedExperience(null);
+      setTranslationError(null);
+      setSelectedLanguage(language);
+      return;
+    }
+
+    try {
+      setTranslating(true);
+      setTranslationError(null);
+      const result = await api<{ title?: string; excerpt?: string; content?: string }>("/posts/translate", {
+        method: "POST",
+        body: JSON.stringify({
+          title: JSON.stringify({ headline: about.headline, ctaTitle: about.ctaTitle, ctaButtonLabel: about.ctaButtonLabel }),
+          excerpt: JSON.stringify({ ctaText: about.ctaText }),
+          content: JSON.stringify({ bio: about.bio, skills: about.skills, experience: about.experience }),
+          structuredContent: true,
+          sourceLanguage: "auto",
+          targetLanguage: language,
+        }),
+      });
+      const translatedHeader = JSON.parse(result.title || "{}") as Partial<{ headline: string; ctaTitle: string; ctaButtonLabel: string }>;
+      const translatedCta = JSON.parse(result.excerpt || "{}") as Partial<{ ctaText: string }>;
+      const translatedPage = JSON.parse(result.content || "{}") as Partial<{ bio: string; skills: string[]; experience: typeof about.experience }>;
+      setTranslatedHeadline(translatedHeader.headline || about.headline);
+      setTranslatedCtaTitle(translatedHeader.ctaTitle || about.ctaTitle);
+      setTranslatedCtaButtonLabel(translatedHeader.ctaButtonLabel || about.ctaButtonLabel);
+      setTranslatedCtaText(translatedCta.ctaText || about.ctaText);
+      setTranslatedBio(translatedPage.bio || about.bio);
+      setTranslatedSkills(translatedPage.skills || about.skills);
+      setTranslatedExperience(translatedPage.experience || about.experience);
+      setSelectedLanguage(language);
+    } catch (error) {
+      setTranslationError(error instanceof Error ? error.message : "No se pudo traducir esta página");
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleExternalLanguageChange = (event: Event) => {
+      void handleLanguageChange((event as CustomEvent<"original" | "en">).detail);
+    };
+    window.addEventListener("about-language-change", handleExternalLanguageChange);
+    return () => window.removeEventListener("about-language-change", handleExternalLanguageChange);
+  });
 
   if (loading || !about) return null;
 
   const [firstName, ...restName] = about.name.split(" ");
-  const bioParagraphs = about.bio.split("\n\n");
+  const displayedHeadline = translatedHeadline ?? about.headline;
+  const displayedBio = translatedBio ?? about.bio;
+  const displayedCtaText = translatedCtaText ?? about.ctaText;
+  const displayedCtaTitle = translatedCtaTitle ?? about.ctaTitle;
+  const displayedCtaButtonLabel = translatedCtaButtonLabel ?? about.ctaButtonLabel;
+  const displayedSkills = translatedSkills ?? about.skills;
+  const displayedExperience = translatedExperience ?? about.experience;
+  const bioParagraphs = displayedBio.split("\n\n");
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "clamp(40px, 6vw, 72px) 24px 80px" }}>
 
       {/* Header */}
       <div style={{ marginBottom: 56 }}>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 14 }}>
-          Sobre mí
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)" }}>
+            {selectedLanguage === "en" ? "About me" : "Sobre mí"}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 36, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 260 }}>
@@ -53,7 +130,7 @@ export default function About() {
               {firstName}<br />{restName.join(" ")}
             </h1>
             <p style={{ fontSize: "1.0625rem", color: "var(--muted-fg)", lineHeight: 1.8, margin: "0 0 20px" }}>
-              {about.headline}
+              {displayedHeadline}
             </p>
             {bioParagraphs.map((paragraph, i) => (
               <p key={i} style={{ fontSize: "1.0625rem", color: "var(--muted-fg)", lineHeight: 1.8, margin: i < bioParagraphs.length - 1 ? "0 0 20px" : 0 }}>
@@ -132,10 +209,10 @@ export default function About() {
       {/* Skills */}
       <div style={{ marginBottom: 56 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.375rem", fontWeight: 600, margin: "0 0 20px" }}>
-          Tecnologías & áreas de expertise
+          {selectedLanguage === "en" ? "Technologies & areas of expertise" : "Tecnologías & áreas de expertise"}
         </h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {about.skills.map((skill) => (
+          {displayedSkills.map((skill) => (
             <span key={skill} style={{
               padding: "7px 14px",
               border: "1px solid var(--border)",
@@ -167,10 +244,10 @@ export default function About() {
       {/* Experience */}
       <div style={{ marginBottom: 56 }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.375rem", fontWeight: 600, margin: "0 0 28px" }}>
-          Experiencia
+          {selectedLanguage === "en" ? "Experience" : "Experiencia"}
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {about.experience.map((item, i) => (
+          {displayedExperience.map((item, i) => (
             <div key={item.id} style={{
               display: "grid",
               gridTemplateColumns: "160px 1fr",
@@ -207,10 +284,10 @@ export default function About() {
       }}>
         <div>
           <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", fontWeight: 600, margin: "0 0 6px" }}>
-            {about.ctaTitle}
+            {displayedCtaTitle}
           </h3>
           <p style={{ color: "var(--muted-fg)", margin: 0, fontSize: "0.9375rem" }}>
-            {about.ctaText}
+            {displayedCtaText}
           </p>
         </div>
         <a
@@ -230,7 +307,7 @@ export default function About() {
           onMouseOver={e => (e.currentTarget.style.opacity = "0.85")}
           onMouseOut={e => (e.currentTarget.style.opacity = "1")}
         >
-          {about.ctaButtonLabel}
+          {displayedCtaButtonLabel}
         </a>
       </div>
 

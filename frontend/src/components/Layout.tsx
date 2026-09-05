@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Outlet, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useTheme } from "@/context/ThemeContext";
 
 function SunIcon() {
@@ -34,6 +34,8 @@ export default function Layout() {
   const [searchValue, setSearchValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [aboutLanguage, setAboutLanguage] = useState<"original" | "en">("original");
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -147,9 +149,31 @@ export default function Layout() {
 
       <footer style={{ borderTop: "1px solid var(--border)", marginTop: 80, padding: "32px 24px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: "1.125rem", fontWeight: 600 }}>
-            <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "1.125rem", fontWeight: 600 }}>
+              <span style={{ letterSpacing: "0.35em", fontWeight: 400, textTransform: "uppercase", color: "var(--foreground)" }}>JVSV</span>
+            </span>
+            {location.pathname === "/sobre-mi" && (
+              <div className="post-actions" aria-label="About page language">
+                <div className="post-translation-control">
+                  <span className="post-translation-label">Translate</span>
+                  <select
+                    value={aboutLanguage}
+                    onChange={(event) => {
+                      const language = event.target.value as "original" | "en";
+                      setAboutLanguage(language);
+                      window.dispatchEvent(new CustomEvent("about-language-change", { detail: language }));
+                    }}
+                    aria-label="Select language"
+                    style={{ background: "transparent", color: "var(--foreground)", border: 0, padding: "7px 24px 7px 4px", fontSize: "0.8125rem", fontWeight: 500, outline: "none", cursor: "pointer" }}
+                  >
+                    <option value="original">Original</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
           <span style={{ fontSize: "0.8125rem", color: "var(--muted-fg)" }}>
             © 2026 Jonathan Salgado Vega — Writing about code, craft & quiet.
           </span>
