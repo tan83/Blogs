@@ -63,11 +63,13 @@ export default function AdminEditor() {
   const [coverImage, setCoverImage] = useState(existing?.coverImage || "");
   const [status, setStatus] = useState<"published" | "draft">(existing?.status || "draft");
   const [activeTab, setActiveTab] = useState<"write" | "preview">("write");
+  const [targetLanguage, setTargetLanguage] = useState<"es" | "en">("es");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [translating, setTranslating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const autoSlug = useMemo(() => slugify(title), [title]);
@@ -77,6 +79,39 @@ export default function AdminEditor() {
   }, [autoSlug, isEditing, title, slug]);
 
   const previewHtml = useMemo(() => marked.parse(content) as string, [content]);
+
+  const handleTranslate = async () => {
+    const payload = {
+      title: title.trim(),
+      excerpt: excerpt.trim(),
+      content: content.trim(),
+      sourceLanguage: "auto",
+      targetLanguage,
+    };
+
+    if (!payload.title && !payload.excerpt && !payload.content) {
+      setSaveError("Escribe algo para traducir primero");
+      return;
+    }
+
+    try {
+      setTranslating(true);
+      setSaveError("");
+
+      const result = await api<{ title?: string; excerpt?: string; content?: string }>('/posts/translate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (result.title) setTitle(result.title);
+      if (result.excerpt) setExcerpt(result.excerpt);
+      if (result.content) setContent(result.content);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo traducir');
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   const handleSave = async (saveStatus: "draft" | "published") => {
     if (!title.trim() || !content.trim()) return;
@@ -197,7 +232,39 @@ export default function AdminEditor() {
             {status}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <select
+            value={targetLanguage}
+            onChange={(e) => setTargetLanguage(e.target.value as "es" | "en")}
+            style={{
+              ...inputStyle,
+              width: "auto",
+              minWidth: 90,
+              backgroundColor: "var(--muted)",
+              color: "var(--foreground)",
+            }}
+          >
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+          <button
+            onClick={handleTranslate}
+            disabled={translating}
+            style={{
+              padding: "8px 16px",
+              background: "var(--muted)",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              color: "var(--foreground)",
+              fontSize: "0.875rem",
+              cursor: translating ? "not-allowed" : "pointer",
+              fontFamily: "var(--font-sans)",
+              opacity: translating ? 0.6 : 1,
+              transition: "all 0.15s",
+            }}
+          >
+            {translating ? "Traduciendo…" : "Traducir"}
+          </button>
           {saveError && (
             <span style={{ fontSize: "0.8125rem", color: "#EF4444", display: "flex", alignItems: "center", gap: 4 }}>
               {saveError}

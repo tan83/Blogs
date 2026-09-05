@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { marked } from "marked";
 import { usePosts } from "@/context/PostsContext";
@@ -25,9 +25,18 @@ export default function PostDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { getPostBySlug, posts, postLikes, toggleLike } = usePosts();
   const navigate = useNavigate();
+  const [selectedLanguage, setSelectedLanguage] = useState<"original" | "en">("original");
+  const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
+  const [translatedExcerpt, setTranslatedExcerpt] = useState<string | null>(null);
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
 
   const post = slug ? getPostBySlug(slug) : undefined;
   const likes = post ? postLikes[post.id] || { totalLikes: 0, hasUserLiked: false } : null;
+  const displayedTitle = translatedTitle ?? post?.title ?? "";
+  const displayedExcerpt = translatedExcerpt ?? post?.excerpt ?? "";
+  const displayedContent = translatedContent ?? post?.content ?? "";
 
   useEffect(() => {
     if (slug && !post) navigate("/", { replace: true });
@@ -39,10 +48,47 @@ export default function PostDetail() {
     api(`/posts/${post.id}/view`, { method: "POST" }).catch(() => {});
   }, [post?.id]);
 
+  useEffect(() => {
+    setTranslatedTitle(null);
+    setTranslatedExcerpt(null);
+    setTranslatedContent(null);
+    setSelectedLanguage("original");
+    setTranslationError(null);
+  }, [post?.id]);
+
+  const handleTranslate = async (language: "en") => {
+    if (!post) return;
+
+    try {
+      setTranslating(true);
+      setTranslationError(null);
+      const result = await api<{ title?: string; excerpt?: string; content?: string }>('/posts/translate', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: post.title,
+          excerpt: post.excerpt,
+          content: post.content,
+          sourceLanguage: 'auto',
+          targetLanguage: language,
+        }),
+      });
+
+      setTranslatedTitle(result.title || post.title);
+      setTranslatedExcerpt(result.excerpt || post.excerpt);
+      setTranslatedContent(result.content || post.content);
+      setSelectedLanguage(language);
+    } catch (error) {
+      console.error('Translation failed', error);
+      setTranslationError(error instanceof Error ? error.message : 'No se pudo traducir el post');
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const htmlContent = useMemo(() => {
     if (!post) return "";
-    return marked.parse(post.content) as string;
-  }, [post]);
+    return marked.parse(displayedContent) as string;
+  }, [displayedContent, post]);
 
   const related = useMemo(() => {
     if (!post) return [];
@@ -52,8 +98,6 @@ export default function PostDetail() {
   }, [post, posts]);
 
   if (!post) return null;
-
-  const totalViews = (post.views + 1).toLocaleString();
 
   return (
     <div>
@@ -93,21 +137,23 @@ export default function PostDetail() {
         </span>
 
         {/* Title */}
-        <h1 style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "clamp(1.875rem, 5vw, 2.75rem)",
-          fontWeight: 600,
-          lineHeight: 1.15,
-          letterSpacing: "-0.02em",
-          color: "var(--foreground)",
-          margin: "14px 0 20px",
-        }}>
-          {post.title}
-        </h1>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", margin: "14px 0 20px" }}>
+          <h1 style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(1.875rem, 5vw, 2.75rem)",
+            fontWeight: 600,
+            lineHeight: 1.15,
+            letterSpacing: "-0.02em",
+            color: "var(--foreground)",
+            margin: 0,
+          }}>
+            {displayedTitle}
+          </h1>
+        </div>
 
         {/* Excerpt */}
         <p style={{ fontSize: "1.1rem", color: "var(--muted-fg)", lineHeight: 1.65, margin: "0 0 28px", fontStyle: "italic" }}>
-          {post.excerpt}
+          {displayedExcerpt}
         </p>
 
         {/* Meta */}
@@ -135,9 +181,46 @@ export default function PostDetail() {
             <time>{new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</time>
             <span>·</span>
             <span>{post.readTime} min read</span>
-            <span>·</span>
-            <span>{totalViews} views</span>
-            <span>·</span>
+          </div>
+
+          <div className="post-actions" aria-label="Post actions">
+            <div className="post-translation-control">
+              <span className="post-translation-label">Translate</span>
+              <select
+                value={selectedLanguage}
+                onChange={(e) => {
+                  const value = e.target.value as "original" | "en";
+                  if (value === "original") {
+                    setTranslatedTitle(null);
+                    setTranslatedExcerpt(null);
+                    setTranslatedContent(null);
+                    setSelectedLanguage("original");
+                    setTranslationError(null);
+                    return;
+                  }
+                  void handleTranslate(value);
+                }}
+                style={{
+                  background: "transparent",
+                  color: "var(--foreground)",
+                  border: 0,
+                  borderRadius: 0,
+                  padding: "7px 24px 7px 4px",
+                  fontSize: "0.8125rem",
+                  fontWeight: 500,
+                  outline: "none",
+                  cursor: translating ? "wait" : "pointer",
+                }}
+                aria-label="Select language"
+              >
+                <option value="original">Original</option>
+                <option value="en">English</option>
+              </select>
+              {translating && <span className="post-translation-status">...</span>}
+            </div>
+
+            {translationError && <span className="post-translation-error">{translationError}</span>}
+
             <LikeButton
               postId={post.id}
               totalLikes={likes?.totalLikes ?? 0}

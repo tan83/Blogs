@@ -35,21 +35,17 @@ export function LikeButton({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="post-like-wrap">
       <button
         onClick={handleClick}
         disabled={isLoading}
-        className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
-          hasLiked
-            ? "bg-red-100 text-red-600 hover:bg-red-200"
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`post-like-button${hasLiked ? " is-liked" : ""}`}
         title={error ? error : undefined}
       >
-        <span className="text-lg">{hasLiked ? "❤️" : "🤍"}</span>
-        <span className="text-sm font-medium">{totalLikes}</span>
+        <span className="post-like-icon" aria-hidden="true">{hasLiked ? "♥" : "♡"}</span>
+        <span>{totalLikes}</span>
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="post-like-error">{error}</span>}
     </div>
   );
 }

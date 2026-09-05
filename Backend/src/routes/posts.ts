@@ -6,8 +6,130 @@ import { toPostDto, type PostWithAuthor, type AboutForPosts } from "../lib/posts
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+const GEMINI_RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 type PostStatus = "published" | "draft";
+
+async function translateText(text: string, targetLanguage: string, sourceLanguage: string): Promise<string> {
+  if (!text.trim()) return text;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API key is not configured");
+  }
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(`${GEMINI_API_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{
+                text: `You are a careful translator. Return only the translated text. Preserve markdown, structure, tone, meaning, and code blocks. Do not add explanations. If the input is a JSON object, return only valid JSON with the same keys and translated string values. Translate from ${sourceLanguage === "auto" ? "the source language" : sourceLanguage} to ${targetLanguage}.\n\n${text}`,
+              }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        const statusCode = response.status;
+        const isRetryable = GEMINI_RETRYABLE_STATUS_CODES.has(statusCode);
+
+        if (isRetryable && attempt < 3) {
+          await delay(500 * attempt);
+          continue;
+        }
+
+        throw new Error(`Gemini translation failed (${statusCode}): ${errorBody}`);
+      }
+
+      const payload = (await response.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      const translated = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim() ?? "";
+
+      if (!translated) {
+        throw new Error("Gemini translation response was empty");
+      }
+
+      return translated;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unknown translation error");
+      if (attempt < 3) {
+        await delay(500 * attempt);
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Translation failed");
+}
+
+async function translatePostFields(
+  fields: { title: string; excerpt: string; content: string },
+  targetLanguage: string,
+  sourceLanguage: string,
+): Promise<{ title: string; excerpt: string; content: string }> {
+  const translated = await translateText(
+    JSON.stringify({ title: fields.title, excerpt: fields.excerpt }),
+    targetLanguage,
+    sourceLanguage,
+  );
+  const cleaned = translated.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  const normalized = firstBrace >= 0 && lastBrace > firstBrace
+    ? cleaned.slice(firstBrace, lastBrace + 1)
+    : cleaned;
+
+  try {
+    const parsed = JSON.parse(normalized) as Partial<typeof fields>;
+    return {
+      title: typeof parsed.title === "string" ? parsed.title : fields.title,
+      excerpt: typeof parsed.excerpt === "string" ? parsed.excerpt : fields.excerpt,
+      content: fields.content,
+    };
+  } catch {
+    throw new Error("Gemini returned an invalid translation format");
+  }
+}
+
+async function translatePostContent(
+  content: string,
+  targetLanguage: string,
+  sourceLanguage: string,
+): Promise<string> {
+  if (!content) return content;
+
+  const chunks: string[] = [];
+  for (let offset = 0; offset < content.length; offset += 700) {
+    chunks.push(content.slice(offset, offset + 700));
+  }
+
+  const translatedChunks: string[] = [];
+  for (const chunk of chunks) {
+    translatedChunks.push(await translateText(chunk, targetLanguage, sourceLanguage));
+  }
+
+  return translatedChunks.join("");
+}
 
 interface PostInput {
   slug?: string;
@@ -118,6 +240,36 @@ router.get("/", async (_req, res) => {
   ]);
   const aboutAvatar = about?.avatarImage;
   res.json(posts.map((p) => toPostDto(p, aboutAvatar)));
+});
+
+// Translate post fields using Gemini.
+router.post("/translate", async (req: Request, res) => {
+  try {
+    const body = req.body as {
+      title?: string;
+      excerpt?: string;
+      content?: string;
+      sourceLanguage?: string;
+      targetLanguage?: string;
+    };
+
+    const sourceLanguage = body.sourceLanguage || "auto";
+    const targetLanguage = body.targetLanguage || "es";
+
+    const fields = {
+      title: body.title?.trim() || "",
+      excerpt: body.excerpt?.trim() || "",
+      content: body.content?.trim() || "",
+    };
+    const translated = await translatePostFields(fields, targetLanguage, sourceLanguage);
+    translated.content = await translatePostContent(fields.content, targetLanguage, sourceLanguage);
+
+    res.json({ ...translated, sourceLanguage, targetLanguage });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Translation failed";
+    console.error("Post translation failed:", error);
+    res.status(500).json({ message });
+  }
 });
 
 // Get a single post by id (used by the admin editor)
